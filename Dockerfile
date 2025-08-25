@@ -1,14 +1,23 @@
-# Use Java 17 (or 21 if you’re on Spring Boot 3.x)
-FROM eclipse-temurin:17-jdk
-
-# Set working directory
+# ---------- Stage 1: Build ----------
+FROM maven:3.9.6-eclipse-temurin-17 AS builder
 WORKDIR /app
 
-# Copy jar file
-COPY target/*.jar app.jar
+# Copy pom.xml and download dependencies first (cache optimization)
+COPY pom.xml .
+RUN mvn dependency:go-offline
 
-# Expose the port Render will assign
+# Copy the source code
+COPY src ./src
+
+# Build the jar
+RUN mvn clean package -DskipTests
+
+# ---------- Stage 2: Run ----------
+FROM eclipse-temurin:17-jdk
+WORKDIR /app
+
+# Copy only the built jar from the builder stage
+COPY --from=builder /app/target/*.jar app.jar
+
 EXPOSE 10000
-
-# Run the jar
 ENTRYPOINT ["java","-jar","app.jar"]
